@@ -110,6 +110,12 @@
   .abtn.done{opacity:.5;cursor:default}
   .abtn.done:hover{color:var(--label);border-color:var(--border)}
 
+  .tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:14px}
+  .tab{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:13px;font-weight:500;color:var(--label);cursor:pointer;transition:all .15s;font-family:var(--sans)}
+  .tab:hover{border-color:var(--muted);color:var(--text)}
+  .tab.on{background:rgba(232,80,26,.15);border-color:var(--accent);color:var(--accent2);font-weight:600}
+  .tab .n{font-family:var(--mono);font-size:11px;font-weight:600;background:var(--surface2);border-radius:20px;padding:2px 8px;color:var(--muted)}
+  .tab.on .n{background:rgba(232,80,26,.2);color:var(--accent2)}
   .filter-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px}
   .filter-bar input,.filter-bar select{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12.5px;color:var(--text);font-family:var(--sans);outline:none;cursor:pointer;transition:border-color .15s}
   .filter-bar input[type="search"]{min-width:220px;cursor:text}
@@ -155,6 +161,17 @@
   .ag-act{display:flex}
 
   /* FORMAS DE PAGAMENTO (fechamento) */
+  .conc td{opacity:.45}
+  .conc td.strong{text-decoration:line-through}
+  .sub-row td{background:var(--surface2);font-weight:600;color:var(--text)}
+  .tot-row td{border-top:2px solid var(--border);font-weight:700;color:var(--text)}
+  .conc-box{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px 20px}
+  .conc-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+  .conc-card.banco{border-left:3px solid var(--blue)}
+  .conc-card.caixa{border-left:3px solid var(--green)}
+  .cc-label{font-size:11px;color:var(--muted);margin-bottom:6px}
+  .cc-val{font-family:var(--mono);font-size:20px;color:var(--text)}
+  .cc-det{font-size:11px;color:var(--muted);margin-top:6px}
   .forma-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 20px}
   .forma-chip{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
   .fc-label{font-size:11px;color:var(--muted);margin-bottom:6px}
@@ -196,6 +213,7 @@
 
   @media print{
     header,nav,.filter-bar,.act,.no-print{display:none!important}
+    .conc td{opacity:1}
     body,main{background:#fff;color:#000}
     .panel,.kpi-card,.form-panel{border-color:#ccc;background:#fff}
     th{background:#f0f0f0;color:#000}
@@ -260,6 +278,12 @@
         <div><h1>Todos os Pedidos</h1>
         <p>Visão completa. A produção marca <b>PRONTO</b>, a loja registra a <b>retirada</b> (com baixa do saldo) e o Pós-Venda registra <b>envio</b>, <b>entrega agendada</b> ou correio após o pagamento.</p></div>
         <button class="btn btn-primary" onclick="irPara('novo')">+ Novo Pedido</button>
+      </div>
+      <div class="tabs" id="tabsPedidos">
+        <button class="tab" data-st="" onclick="abaStatus('')">📋 Todos <span class="n" id="tabN"></span></button>
+        <button class="tab" data-st="producao" onclick="abaStatus('producao')">🏭 Em produção <span class="n" id="tabNprod"></span></button>
+        <button class="tab" data-st="pronto" onclick="abaStatus('pronto')">✅ Prontos <span class="n" id="tabNpronto"></span></button>
+        <button class="tab" data-st="entregue" onclick="abaStatus('entregue')">🚚 Entregues <span class="n" id="tabNentr"></span></button>
       </div>
       <div class="filter-bar">
         <input type="search" id="fBusca" placeholder="🔍 Buscar por cliente ou OS..." oninput="render()">
@@ -401,6 +425,7 @@
       <div class="kpi-grid g3" id="fecMov"></div>
       <div id="fecFormas"></div>
       <div id="fecFuncs"></div>
+      <div id="fecExtrato"></div>
       <div class="panel">
         <div class="panel-header"><h3>📦 Estoque de prontos parados <span class="sub">— situação atual, independente da data</span></h3></div>
         <div class="table-scroll"><table id="tblEstoque"></table></div>
@@ -917,6 +942,7 @@ function salvarEdicao(id){
 
 /* ============ PEDIDOS ============ */
 function renderPedidos(){
+  atualizarAbas();
   const busca=(document.getElementById('fBusca').value||'').toLowerCase();
   const ft=document.getElementById('fTipo').value, fs=document.getElementById('fStatus').value, fsit=document.getElementById('fSit').value;
   const ffo=document.getElementById('fForma').value, fde=document.getElementById('fDe').value, fate=document.getElementById('fAte').value;
@@ -949,6 +975,15 @@ function renderPedidos(){
   document.getElementById('pedResumo').innerHTML=`${lista.length} de ${pedidos.length} pedidos · saldo filtrado <b style="color:var(--green)">${brl(sTot)}</b>`;
   document.getElementById('tblPedidos').innerHTML=
     `<thead><tr><th>OS</th><th>Cliente</th><th>Tipo</th><th>Total</th><th>Saldo</th><th>Status</th><th>Local</th><th>Situação</th><th>Ações</th></tr></thead><tbody>${rows}</tbody>`;
+}
+function abaStatus(v){ document.getElementById('fStatus').value=v; render(); }
+function atualizarAbas(){
+  const at=document.getElementById('fStatus').value;
+  document.querySelectorAll('#tabsPedidos .tab').forEach(t=>t.classList.toggle('on',t.dataset.st===at));
+  document.getElementById('tabN').textContent=pedidos.length;
+  document.getElementById('tabNprod').textContent=pedidos.filter(p=>p.status==='producao').length;
+  document.getElementById('tabNpronto').textContent=pedidos.filter(p=>p.status==='pronto').length;
+  document.getElementById('tabNentr').textContent=pedidos.filter(p=>p.status==='entregue').length;
 }
 function limparFiltros(){['fBusca','fTipo','fStatus','fSit','fForma','fDe','fAte'].forEach(i=>document.getElementById(i).value='');render();}
 
@@ -1124,6 +1159,8 @@ function renderFechamento(){
       ${funcKeys.map(k=>`<tr><td class="strong">${escAttr(k)}</td><td class="num">${porFunc[k].qtd}</td><td class="num" style="color:var(--green)">${brl(porFunc[k].rec)}</td></tr>`).join('')}
     </tbody></table></div>`:'<div class="empty">Nenhuma entrega nesta data.</div>'}</div>`;
 
+  renderExtrato(recDia,data,recebidoDia,porForma);
+
   const aguardando=pedidos.filter(p=>p.status==='pronto'&&p.statusEntrega==='aguardando');
   const lojaRet=aguardando.filter(p=>p.local==='loja');
   const confCorreio=aguardando.filter(p=>p.local==='confeccao'&&p.tipo==='correio');
@@ -1147,6 +1184,56 @@ function renderFechamento(){
   let re=entreguesDia.map(p=>`<tr><td class="strong">#${p.id}</td><td>${p.cliente}</td><td>${saidaBadge(p)}</td><td style="font-size:12px">${p.entreguePor?escAttr(p.entreguePor):'<span style="color:var(--muted)">—</span>'}</td><td class="num" style="color:var(--green)">${p.dataRecebimentoFinal===data?brl(p.pagoFinal):'—'}</td><td style="font-size:11px">${p.dataRecebimentoFinal===data&&p.formaPagamento?labelForma(p.formaPagamento):'—'}</td></tr>`).join('');
   if(!entreguesDia.length) re=`<tr><td colspan="6"><div class="empty">Nenhuma entrega nesta data.</div></td></tr>`;
   document.getElementById('tblFecEntregues').innerHTML=`<thead><tr><th>OS</th><th>Cliente</th><th>Saída</th><th>Entregue por</th><th>Recebido</th><th>Forma</th></tr></thead><tbody>${re}</tbody>`;
+}
+let conciliados=new Set();
+function toggleConc(id){ if(conciliados.has(id)) conciliados.delete(id); else conciliados.add(id); renderFechamento(); }
+function renderExtrato(recDia,data,totalDia,porForma){
+  const ordem={dinheiro:1,pix:2,debito:3,credito:4,ni:5};
+  const lista=recDia.slice().sort((a,b)=>{
+    const ka=ordem[a.formaPagamento]||5, kb=ordem[b.formaPagamento]||5;
+    return ka-kb || a.cliente.localeCompare(b.cliente);
+  });
+  const banco=porForma.pix+porForma.debito+porForma.credito;
+  const caixa=porForma.dinheiro;
+  const confQtd=lista.filter(p=>conciliados.has(p.id)).length;
+  const confVal=lista.filter(p=>conciliados.has(p.id)).reduce((s,p)=>s+p.pagoFinal,0);
+
+  let corpo='', formaAtual=null, subtotal=0, qtdF=0;
+  const fechaGrupo=()=>{ if(formaAtual!==null) corpo+=`<tr class="sub-row"><td class="no-print"></td><td colspan="3">Subtotal ${labelForma(formaAtual)} — ${qtdF} cliente(s)</td><td></td><td class="num">${brl(subtotal)}</td></tr>`; };
+  lista.forEach(p=>{
+    const fp=p.formaPagamento||'ni';
+    if(fp!==formaAtual){ fechaGrupo(); formaAtual=fp; subtotal=0; qtdF=0; }
+    subtotal+=p.pagoFinal; qtdF++;
+    const conc=conciliados.has(p.id);
+    const sit = quitado(p)
+      ? '<span class="badge badge-green">Pago integralmente</span>'
+      : `<span class="badge badge-yellow">Parcial</span> <span style="font-size:11px;color:var(--red);font-family:var(--mono)">falta ${brl(saldo(p))}</span>`;
+    corpo+=`<tr class="${conc?'conc':''}">
+      <td class="no-print"><input type="checkbox" ${conc?'checked':''} onchange="toggleConc('${p.id}')" title="marcar como conferido no extrato"></td>
+      <td class="strong">${p.cliente}<div style="font-size:11px;color:var(--muted);font-family:var(--mono)">${p.telefone}</div></td>
+      <td class="strong">#${p.id}</td>
+      <td>${p.formaPagamento?labelForma(p.formaPagamento):'<span class="badge badge-red">Sem forma</span>'}</td>
+      <td>${sit}</td>
+      <td class="num">${brl(p.pagoFinal)}</td>
+    </tr>`;
+  });
+  fechaGrupo();
+  if(!lista.length) corpo=`<tr><td colspan="6"><div class="empty">Nenhum cliente pagou nesta data.</div></td></tr>`;
+  else corpo+=`<tr class="tot-row"><td class="no-print"></td><td colspan="3">TOTAL RECEBIDO NO DIA — ${lista.length} cliente(s)</td><td></td><td class="num">${brl(totalDia)}</td></tr>`;
+
+  document.getElementById('fecExtrato').innerHTML=`<div class="panel">
+    <div class="panel-header">
+      <h3>🧾 Clientes que pagaram no dia <span class="sub">— para conciliar com a conta e o caixa</span></h3>
+      <span class="sub">${confQtd} de ${lista.length} conferidos · ${brl(confVal)}</span>
+    </div>
+    <div class="conc-box">
+      <div class="conc-card caixa"><div class="cc-label">💵 Fica no CAIXA (dinheiro)</div><div class="cc-val">${brl(caixa)}</div><div class="cc-det">confira com a gaveta no fim do dia</div></div>
+      <div class="conc-card banco"><div class="cc-label">🏦 Cai na CONTA (Pix + débito + crédito)</div><div class="cc-val">${brl(banco)}</div><div class="cc-det">Pix ${brl(porForma.pix)} · débito ${brl(porForma.debito)} · crédito ${brl(porForma.credito)}${porForma.ni>0?' · <span style="color:var(--red)">sem forma '+brl(porForma.ni)+'</span>':''}</div></div>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr><th class="no-print">✓</th><th>Cliente</th><th>OS</th><th>Forma</th><th>Situação do pedido</th><th>Valor pago</th></tr></thead>
+      <tbody>${corpo}</tbody></table></div>
+  </div>`;
 }
 function formaChip(l,v){return `<div class="forma-chip"><div class="fc-label">${l}</div><div class="fc-val">${brl(v)}</div></div>`;}
 
