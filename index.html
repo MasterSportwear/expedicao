@@ -192,6 +192,15 @@
   .pg-grid select,.pg-grid input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:11px 12px;font-size:14px;color:var(--text);font-family:var(--sans);outline:none}
   .pg-grid input.mono{font-family:var(--mono)}
   .pg-grid select:focus,.pg-grid input:focus{border-color:var(--accent)}
+  .pg-linha{display:grid;grid-template-columns:1.1fr 1.3fr auto;gap:8px;margin-bottom:8px;align-items:center}
+  .pg-linha input,.pg-linha select{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 11px;font-size:13.5px;color:var(--text);font-family:var(--sans);outline:none;width:100%}
+  .pg-linha input.mono{font-family:var(--mono)}
+  .pg-linha input:focus,.pg-linha select:focus{border-color:var(--accent)}
+  .abtn.del{background:rgba(231,76,60,.12);color:var(--red);border-color:rgba(231,76,60,.3);padding:8px 11px}
+  .pg-total{font-size:12.5px;color:var(--label);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-top:10px}
+  .lanc-lista{margin-top:6px}
+  .lanc-item{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--label);padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px}
+  .lanc-item .v{font-family:var(--mono);color:var(--text);margin-left:auto}
   .req{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--red);background:rgba(231,76,60,.12);border-radius:20px;padding:2px 7px;margin-left:6px}
   .pg-grid input.err{border-color:var(--red)}
   .err-msg{display:none;font-size:11px;color:var(--red);margin-top:6px}
@@ -339,6 +348,7 @@
           <div class="fg"><label>Tipo de Entrega</label><select id="nTipo" onchange="toggleAgendaFields()"><option value="correio">📮 Correio (fica na confecção)</option><option value="retirada">🏬 Retirada em loja</option><option value="agendado">📅 Entrega agendada</option></select></div>
           <div class="fg"><label>Valor Total (R$)</label><input type="number" id="nTotal" placeholder="0,00" step="0.01"></div>
           <div class="fg"><label>Sinal / Entrada Paga (R$)</label><input type="number" id="nSinal" placeholder="0,00" step="0.01"></div>
+          <div class="fg"><label>Forma do sinal</label><select id="nSinalForma"><option value="dinheiro">💵 Dinheiro</option><option value="pix">⚡ Pix</option><option value="debito">💳 Débito</option><option value="credito">💳 Crédito</option></select></div>
         </div>
         <div class="form-grid g2" id="nAgendaRow" style="display:none">
           <div class="fg"><label>Data do Agendamento</label><input type="date" id="nAgData"></div>
@@ -462,17 +472,19 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 let sb=null, MODO='demo';
 
 function rowToPedido(r){
-  return {id:r.id,cliente:r.cliente,telefone:r.telefone||'—',tipo:r.tipo,
+  return migrarPagamentos({id:r.id,cliente:r.cliente,telefone:r.telefone||'—',tipo:r.tipo,
     valorTotal:Number(r.valor_total)||0,sinal:Number(r.sinal)||0,pagoFinal:Number(r.pago_final)||0,
     dataRecebimentoFinal:r.data_recebimento_final,formaPagamento:r.forma_pagamento,
     status:r.status,dataPronto:r.data_pronto,local:r.local,statusEntrega:r.status_entrega,
     dataEntrega:r.data_entrega,clienteAvisado:!!r.cliente_avisado,dataAviso:r.data_aviso,
+    pagamentos:Array.isArray(r.pagamentos)?r.pagamentos:(typeof r.pagamentos==='string'&&r.pagamentos?JSON.parse(r.pagamentos):null),
     dataAgendamento:r.data_agendamento,horaAgendamento:r.hora_agendamento||'',
-    obsAgendamento:r.obs_agendamento||'',entreguePor:r.entregue_por||'',criadoEm:r.criado_em};
+    obsAgendamento:r.obs_agendamento||'',entreguePor:r.entregue_por||'',criadoEm:r.criado_em});
 }
 function pedidoToRow(p){
   return {id:p.id,cliente:p.cliente,telefone:p.telefone,tipo:p.tipo,
-    valor_total:p.valorTotal,sinal:p.sinal,pago_final:p.pagoFinal,
+    valor_total:p.valorTotal,sinal:p.sinal||0,pago_final:p.pagoFinal||0,
+    pagamentos:lanc(p),
     data_recebimento_final:p.dataRecebimentoFinal,forma_pagamento:p.formaPagamento,
     status:p.status,data_pronto:p.dataPronto,local:p.local,status_entrega:p.statusEntrega,
     data_entrega:p.dataEntrega,cliente_avisado:p.clienteAvisado,data_aviso:p.dataAviso,
@@ -536,9 +548,30 @@ function selForma(id,cur){return '<select id="'+id+'">'+FORMAS.map(function(f){r
 function labelForma(v){const f=FORMAS.find(x=>x[0]===v);return f?f[1]:'—';}
 
 /* ============ MODELO ============ */
-function saldo(p){return Math.max(0, p.valorTotal - p.sinal - p.pagoFinal);}
-function quitado(p){return saldo(p) <= 0.005;}
-function pago(p){return p.sinal + p.pagoFinal;}
+/* Cada recebimento é um lançamento: {id, data, valor, forma, obs} */
+function lanc(p){ return Array.isArray(p.pagamentos)?p.pagamentos:[]; }
+function pago(p){ return lanc(p).reduce((s,l)=>s+(Number(l.valor)||0),0); }
+function saldo(p){ return Math.max(0, (Number(p.valorTotal)||0) - pago(p)); }
+function quitado(p){ return saldo(p) <= 0.005; }
+function novoLancId(){ return 'L'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function addLanc(p,valor,forma,data,obs){
+  if(!Array.isArray(p.pagamentos)) p.pagamentos=[];
+  p.pagamentos.push({id:novoLancId(),data:data||HOJE,valor:Math.round(valor*100)/100,forma:forma||null,obs:obs||''});
+}
+/* converte pedidos no formato antigo (sinal + pagoFinal) em lançamentos */
+function migrarPagamentos(p){
+  if(Array.isArray(p.pagamentos)) return p;
+  p.pagamentos=[];
+  if(Number(p.sinal)>0) addLanc(p,Number(p.sinal),p.formaSinal||null,p.criadoEm||null,'sinal / entrada');
+  if(Number(p.pagoFinal)>0) addLanc(p,Number(p.pagoFinal),p.formaPagamento||null,p.dataRecebimentoFinal||null,'');
+  return p;
+}
+/* todos os lançamentos de uma data, com o pedido correspondente */
+function lancamentosDoDia(data){
+  const out=[];
+  pedidos.forEach(p=>lanc(p).forEach(l=>{ if(l.data===data) out.push({l,p}); }));
+  return out;
+}
 
 function situacao(p){
   if(p.status!=='pronto' || p.statusEntrega!=='aguardando') return null;
@@ -602,6 +635,7 @@ let pedidos = [
 
 /* quem entregou: normaliza e preenche exemplos já entregues */
 const _entreg={'1040':'Adryanne','1041':'Bruna Barcelos','1042':'Jaqueline','1035':'Guilherme Barcelos','1036':'Vitória','1064':'Renan'};
+pedidos.forEach(migrarPagamentos);
 pedidos.forEach(p=>{ if(p.entreguePor===undefined) p.entreguePor=_entreg[p.id]||''; if(p.dataAviso===undefined) p.dataAviso=p.clienteAvisado?p.dataPronto:null; });
 
 /* ============ NAVEGAÇÃO ============ */
@@ -755,17 +789,26 @@ function registrarPagamento(id){
   const p=get(id);const s=saldo(p);
   openModal('💰 Registrar pagamento — #'+id,
     `<p>Cliente: <b>${p.cliente}</b><br>Saldo em aberto:</p><div class="big-val">${brl(s)}</div>
-     <div class="pg-grid">
-       <div><label>Valor recebido</label><input type="number" class="mono" id="mVal" value="${s.toFixed(2)}" step="0.01"></div>
-       <div><label>Forma de pagamento</label>${selForma('mForma',p.formaPagamento)}</div>
-     </div>`,
+     ${listaLancamentos(p)}
+     <label style="margin-top:4px">Recebimento (pode dividir em mais de uma forma)</label>
+     ${blocoPagamento(s)}`,
     ()=>{
-      const v=parseFloat(document.getElementById('mVal').value)||0;
-      if(v<=0){toast('Informe um valor válido');return false;}
-      p.pagoFinal+=v; if(p.pagoFinal>p.valorTotal-p.sinal)p.pagoFinal=p.valorTotal-p.sinal;
-      p.dataRecebimentoFinal=HOJE; p.formaPagamento=val('mForma');
-      toast(`Pagamento de ${brl(v)} (${labelForma(p.formaPagamento)}) registrado no #${id}`);persistir(p);
+      const linhas=validarLinhasPg(); if(linhas===false) return false;
+      linhas.forEach(l=>addLanc(p,l.valor,l.forma,HOJE));
+      const t=linhas.reduce((a,l)=>a+l.valor,0);
+      const detalhe=linhas.map(l=>brl(l.valor)+' '+labelForma(l.forma)).join(' + ');
+      toast(`#${id}: ${detalhe}${quitado(p)?' — pedido quitado':' — saldo '+brl(saldo(p))}`);
+      persistir(p);
     },'Confirmar recebimento');
+  iniciaBlocoPg(s);
+}
+function listaLancamentos(p){
+  const l=lanc(p);
+  if(!l.length) return '';
+  return `<div class="lanc-lista"><label>Já recebido neste pedido</label>${
+    l.slice().sort((a,b)=>(a.data||'').localeCompare(b.data||'')).map(x=>
+      `<div class="lanc-item"><span>${fmtDataFull(x.data)}</span><span>${x.forma?labelForma(x.forma):'<span style="color:var(--red)">sem forma</span>'}</span>${x.obs?'<span style="color:var(--muted)">'+escAttr(x.obs)+'</span>':''}<span class="v">${brl(x.valor)}</span></div>`
+    ).join('')}<div class="lanc-item" style="border-color:var(--muted)"><span><b>Total pago</b></span><span class="v"><b>${brl(pago(p))}</b></span></div></div>`;
 }
 function registrarEnvio(id){
   const p=get(id);
@@ -790,16 +833,17 @@ function registrarRetirada(id){
     `<p>Cliente <b>${p.cliente}</b> retirando na loja.</p>
      ${campoEntregador(p,'Funcionário que entregou na loja')}
      ${s>0?`<p style="margin-top:16px">Saldo a receber no ato da retirada:</p><div class="big-val">${brl(s)}</div>
-     <div class="pg-grid one"><div><label>Forma de pagamento</label>${selForma('mForma',p.formaPagamento)}</div></div>
-     <p style="font-size:12px;margin-top:14px">Ao confirmar, o saldo é <b>baixado automaticamente</b> — evitando inadimplência falsa no caixa.</p>`
+     <label>Recebimento (pode dividir em mais de uma forma)</label>
+     ${blocoPagamento(s)}`
      :`<p style="margin-top:16px">Pedido já quitado. Confirmar entrega?</p>`}`,
     ()=>{
       const nome=validarEntregador(); if(nome===false) return false;
-      if(s>0){p.pagoFinal=p.valorTotal-p.sinal;p.dataRecebimentoFinal=HOJE;p.formaPagamento=val('mForma');}
+      if(s>0){ const linhas=validarLinhasPg(); if(linhas===false) return false; linhas.forEach(l=>addLanc(p,l.valor,l.forma,HOJE)); }
       p.entreguePor=nome;
       p.status='entregue';p.statusEntrega='retirado';p.dataEntrega=HOJE;
-      toast(`#${id} entregue por ${nome}${s>0?' — '+brl(s)+' baixado ('+labelForma(p.formaPagamento)+')':''}`);persistir(p);
+      toast(`#${id} entregue por ${nome}${s>0?' — recebido '+brl(s-saldo(p)):''}`);persistir(p);
     },'Confirmar retirada'+(s>0?' + baixa':''));
+  if(s>0) iniciaBlocoPg(s);
 }
 function registrarEntrega(id){
   const p=get(id);const s=saldo(p);
@@ -807,16 +851,79 @@ function registrarEntrega(id){
     `<p>Entrega agendada de <b>${p.cliente}</b>${p.dataAgendamento?` (agendada ${fmtData(p.dataAgendamento)}${p.horaAgendamento?' '+p.horaAgendamento:''})`:''}.</p>
      ${campoEntregador(p,'Funcionário que fez a entrega')}
      ${s>0?`<p style="margin-top:16px">Saldo a receber na entrega:</p><div class="big-val">${brl(s)}</div>
-     <div class="pg-grid one"><div><label>Forma de pagamento</label>${selForma('mForma',p.formaPagamento)}</div></div>`
+     <label>Recebimento (pode dividir em mais de uma forma)</label>
+     ${blocoPagamento(s)}`
      :`<p style="margin-top:16px">Pedido já quitado. Confirmar entrega?</p>`}`,
     ()=>{
       const nome=validarEntregador(); if(nome===false) return false;
-      if(s>0){p.pagoFinal=p.valorTotal-p.sinal;p.dataRecebimentoFinal=HOJE;p.formaPagamento=val('mForma');}
+      if(s>0){ const linhas=validarLinhasPg(); if(linhas===false) return false; linhas.forEach(l=>addLanc(p,l.valor,l.forma,HOJE)); }
       p.entreguePor=nome;
       p.status='entregue';p.statusEntrega='entregue';p.dataEntrega=HOJE;
-      toast(`#${id} entregue por ${nome}${s>0?' — '+brl(s)+' baixado ('+labelForma(p.formaPagamento)+')':''}`);persistir(p);
+      toast(`#${id} entregue por ${nome}${s>0?' — recebido '+brl(s-saldo(p)):''}`);persistir(p);
     },'Confirmar entrega'+(s>0?' + baixa':''));
+  if(s>0) iniciaBlocoPg(s);
 }
+/* ---- componente: várias formas de pagamento num mesmo recebimento ---- */
+let _linhasPg=0;
+function blocoPagamento(valorSugerido){
+  _linhasPg=0;
+  return `<div id="pgLinhas"></div>
+    <button type="button" class="abtn" style="margin-top:4px" onclick="addLinhaPg()">＋ Dividir em outra forma</button>
+    <div class="pg-total" id="pgTotalInfo"></div>
+    <div class="err-msg" id="errPg">Informe ao menos um valor maior que zero.</div>`;
+}
+function addLinhaPg(valor,forma){
+  const cont=document.getElementById('pgLinhas'); if(!cont) return;
+  const i=++_linhasPg;
+  const d=document.createElement('div');
+  d.className='pg-linha'; d.id='pgL'+i;
+  d.innerHTML=`<input type="number" step="0.01" class="mono" id="pgV${i}" value="${valor!=null?Number(valor).toFixed(2):''}" placeholder="0,00" oninput="somaLinhasPg()">
+    ${selForma('pgF'+i,forma)}
+    <button type="button" class="abtn del" onclick="delLinhaPg(${i})" title="remover">✕</button>`;
+  cont.appendChild(d);
+  somaLinhasPg();
+}
+function delLinhaPg(i){
+  const el=document.getElementById('pgL'+i);
+  if(el && document.querySelectorAll('#pgLinhas .pg-linha').length>1){ el.remove(); somaLinhasPg(); }
+  else toast('É preciso ao menos uma linha de pagamento');
+}
+function lerLinhasPg(){
+  const out=[];
+  document.querySelectorAll('#pgLinhas .pg-linha').forEach(d=>{
+    const i=d.id.replace('pgL','');
+    const v=parseFloat(val('pgV'+i))||0;
+    if(v>0) out.push({valor:v,forma:val('pgF'+i)});
+  });
+  return out;
+}
+function somaLinhasPg(){
+  const linhas=lerLinhasPg();
+  const t=linhas.reduce((s,l)=>s+l.valor,0);
+  const el=document.getElementById('pgTotalInfo');
+  if(!el) return t;
+  const alvo=Number(el.dataset.alvo||0);
+  let extra='';
+  if(alvo>0){
+    const dif=Math.round((alvo-t)*100)/100;
+    if(Math.abs(dif)<0.005) extra=' <span style="color:var(--green)">✓ fecha com o saldo</span>';
+    else if(dif>0) extra=` <span style="color:var(--yellow)">faltam ${brl(dif)} — ficará como pagamento parcial</span>`;
+    else extra=` <span style="color:var(--red)">excede o saldo em ${brl(-dif)}</span>`;
+  }
+  el.innerHTML=`Somando <b>${brl(t)}</b>${extra}`;
+  return t;
+}
+function validarLinhasPg(){
+  const linhas=lerLinhasPg();
+  if(!linhas.length){ document.getElementById('errPg').style.display='block'; toast('Informe ao menos um valor'); return false; }
+  return linhas;
+}
+function iniciaBlocoPg(alvo,linhasIniciais){
+  const info=document.getElementById('pgTotalInfo');
+  if(info) info.dataset.alvo=alvo||0;
+  (linhasIniciais&&linhasIniciais.length?linhasIniciais:[{valor:alvo,forma:null}]).forEach(l=>addLinhaPg(l.valor,l.forma));
+}
+
 function campoEntregador(p,label){
   return `<div class="pg-grid one"><div>
       <label>${label} <span class="req">obrigatório</span></label>
@@ -868,8 +975,15 @@ function escAttr(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"
 function val(id){const e=document.getElementById(id);return e?e.value:'';}
 function opts(pairs,cur){return pairs.map(([v,l])=>`<option value="${v}"${v===cur?' selected':''}>${l}</option>`).join('');}
 
+let _editandoId=null;
+function removerLanc(pid,lid){
+  const p=get(pid);
+  p.pagamentos=lanc(p).filter(l=>l.id!==lid);
+  toast('Lançamento excluído — saldo agora '+brl(saldo(p)));
+  salvarPedido(p); closeModal(); editarPedido(pid);
+}
 function editarPedido(id){
-  const p=get(id);
+  const p=get(id); _editandoId=id;
   const formaOpts=`<option value=""${!p.formaPagamento?' selected':''}>—</option>`+FORMAS.map(f=>`<option value="${f[0]}"${f[0]===p.formaPagamento?' selected':''}>${f[1]}</option>`).join('');
   const body=`
     <div class="edit-sec">Dados do pedido</div>
@@ -880,10 +994,12 @@ function editarPedido(id){
       <div class="fg"><label>Tipo de entrega</label><select id="eTipo">${opts([['correio','📮 Correio'],['retirada','🏬 Retirada em loja'],['agendado','📅 Entrega agendada']],p.tipo)}</select></div>
     </div>
     <div class="edit-sec">Valores</div>
-    <div class="edit-grid edit-grid-3">
-      <div class="fg"><label>Valor total (R$)</label><input type="number" step="0.01" id="eTotal" value="${p.valorTotal}"></div>
-      <div class="fg"><label>Sinal / entrada (R$)</label><input type="number" step="0.01" id="eSinal" value="${p.sinal}"></div>
-      <div class="fg"><label>Pago final (R$)</label><input type="number" step="0.01" id="ePago" value="${p.pagoFinal}"></div>
+    <div class="edit-grid">
+      <div class="fg"><label>Valor total (R$)</label><input type="number" step="0.01" id="eTotal" value="${p.valorTotal}" oninput="atualizarPreviewEdit()"></div>
+      <div class="fg"><label>Total já pago</label><input value="${brl(pago(p))}" disabled style="opacity:.7"></div>
+    </div>
+    <div class="lanc-lista" style="margin-bottom:18px">
+      ${lanc(p).length?lanc(p).map(l=>`<div class="lanc-item"><span>${fmtDataFull(l.data)}</span><span>${l.forma?labelForma(l.forma):'<span style="color:var(--red)">sem forma</span>'}</span>${l.obs?'<span style="color:var(--muted)">'+escAttr(l.obs)+'</span>':''}<span class="v">${brl(l.valor)}</span><button type="button" class="abtn del" onclick="removerLanc('${p.id}','${l.id}')" title="excluir lançamento">✕</button></div>`).join(''):'<div style="font-size:12px;color:var(--muted)">Nenhum pagamento lançado.</div>'}
     </div>
     <div class="edit-sec">Status &amp; entrega</div>
     <div class="edit-grid">
@@ -913,8 +1029,9 @@ function editarPedido(id){
 }
 function atualizarPreviewEdit(){
   if(!document.getElementById('eTipo'))return;
+  const orig=get(_editandoId)||{};
   const tmp={tipo:val('eTipo'),status:val('eStatus'),statusEntrega:val('eEntrega'),dataAgendamento:val('eAgData')||null,
-    valorTotal:parseFloat(val('eTotal'))||0,sinal:parseFloat(val('eSinal'))||0,pagoFinal:parseFloat(val('ePago'))||0};
+    valorTotal:parseFloat(val('eTotal'))||0,pagamentos:lanc(orig)};
   const s=situacao(tmp);const el=document.getElementById('ePreview');const sal=saldo(tmp);
   if(s){el.innerHTML=`<span class="badge ${s.badge}">${s.label}</span> <span class="resp ${s.resp==='CLIENTE'?'cliente':'empresa'}">${s.resp}</span> — saldo ${brl(sal)}`;}
   else if(tmp.status==='entregue'){el.innerHTML='<span class="badge badge-green">Entregue</span> — sem pendência';}
@@ -930,7 +1047,7 @@ function salvarEdicao(id){
   if(novoOS!==p.id && pedidos.some(x=>x.id===novoOS)){toast('Já existe um pedido com o Nº OS '+novoOS);return false;}
   p.id=novoOS; p.cliente=cliente; p.telefone=val('eTel').trim()||'—';
   p.tipo=val('eTipo'); p.valorTotal=total;
-  p.sinal=parseFloat(val('eSinal'))||0; p.pagoFinal=parseFloat(val('ePago'))||0;
+
   p.status=val('eStatus'); p.local=val('eLocal')||null;
   p.statusEntrega=val('eEntrega'); p.clienteAvisado=val('eAvisado')==='true';
   p.dataPronto=val('ePronto')||null; p.dataEntrega=val('eEntregaData')||null; p.dataRecebimentoFinal=val('eRec')||null;
@@ -1001,8 +1118,10 @@ function salvarNovo(){
   const sinal=parseFloat(document.getElementById('nSinal').value)||0;
   const agData=tipo==='agendado'?(document.getElementById('nAgData').value||''):'';
   const agHora=tipo==='agendado'?(document.getElementById('nAgHora').value||''):'';
+  const sinalForma=document.getElementById('nSinalForma').value;
   pedidos.push({id:os,cliente,telefone:document.getElementById('nTel').value.trim()||'—',tipo,valorTotal:total,sinal,pagoFinal:0,dataRecebimentoFinal:null,formaPagamento:null,
     status:st,dataPronto:st==='pronto'?HOJE:null,local:st==='pronto'?(tipo==='retirada'?'loja':'confeccao'):null,
+    pagamentos: sinal>0 ? [{id:novoLancId(),data:HOJE,valor:sinal,forma:sinalForma,obs:'sinal / entrada'}] : [],
     statusEntrega:'aguardando',dataEntrega:null,clienteAvisado:false,
     dataAgendamento:agData||null,horaAgendamento:agHora,obsAgendamento:'',entreguePor:'',dataAviso:null,criadoEm:HOJE});
   toast(`Pedido #${os} cadastrado`);salvarPedido(pedidos[pedidos.length-1]);limparNovo();
@@ -1130,8 +1249,8 @@ function renderFechamento(){
   const data=inp.value;
   const prontosDia=pedidos.filter(p=>p.dataPronto===data);
   const entreguesDia=pedidos.filter(p=>p.dataEntrega===data);
-  const recDia=pedidos.filter(p=>p.dataRecebimentoFinal===data);
-  const recebidoDia=recDia.reduce((s,p)=>s+p.pagoFinal,0);
+  const recDia=lancamentosDoDia(data);                       // [{l,p}] — um item por lançamento
+  const recebidoDia=recDia.reduce((s,x)=>s+(Number(x.l.valor)||0),0);
 
   document.getElementById('fecMov').innerHTML=`
     ${kpi('accent','Ficaram prontos',prontosDia.length,'na data selecionada')}
@@ -1139,7 +1258,7 @@ function renderFechamento(){
     ${kpi('green','Recebido no dia',brl(recebidoDia),'pagamentos finais baixados',true)}`;
 
   const porForma={dinheiro:0,pix:0,debito:0,credito:0,ni:0};
-  recDia.forEach(p=>{const k=(p.formaPagamento&&porForma[p.formaPagamento]!=null)?p.formaPagamento:'ni';porForma[k]+=p.pagoFinal;});
+  recDia.forEach(x=>{const k=(x.l.forma&&porForma[x.l.forma]!=null)?x.l.forma:'ni';porForma[k]+=Number(x.l.valor)||0;});
   document.getElementById('fecFormas').innerHTML=`<div class="panel">
     <div class="panel-header"><h3>💰 Recebido no dia por forma de pagamento <span class="sub">total ${brl(recebidoDia)}</span></h3></div>
     <div class="forma-row">
@@ -1151,7 +1270,8 @@ function renderFechamento(){
     </div></div>`;
 
   const porFunc={};
-  entreguesDia.forEach(p=>{const k=p.entreguePor||'Não informado';if(!porFunc[k])porFunc[k]={qtd:0,rec:0};porFunc[k].qtd++;if(p.dataRecebimentoFinal===data)porFunc[k].rec+=p.pagoFinal;});
+  entreguesDia.forEach(p=>{const k=p.entreguePor||'Não informado';if(!porFunc[k])porFunc[k]={qtd:0,rec:0};porFunc[k].qtd++;
+    porFunc[k].rec += lanc(p).filter(l=>l.data===data).reduce((s,l)=>s+(Number(l.valor)||0),0);});
   const funcKeys=Object.keys(porFunc).sort((a,b)=>porFunc[b].qtd-porFunc[a].qtd);
   document.getElementById('fecFuncs').innerHTML=`<div class="panel">
     <div class="panel-header"><h3>🚚 Entregas por funcionário <span class="sub">— ${entreguesDia.length} entrega(s) no dia</span></h3></div>
@@ -1181,7 +1301,11 @@ function renderFechamento(){
   document.getElementById('tblFecProntos').innerHTML=`<thead><tr><th>OS</th><th>Cliente</th><th>Tipo</th><th>Saldo</th></tr></thead><tbody>${rp}</tbody>`;
 
   const saidaBadge=p=>p.statusEntrega==='enviado'?'<span class="badge badge-blue">📮 Enviado</span>':p.statusEntrega==='entregue'?'<span class="badge badge-cyan">📅 Entregue</span>':'<span class="badge badge-purple">🏬 Retirado</span>';
-  let re=entreguesDia.map(p=>`<tr><td class="strong">#${p.id}</td><td>${p.cliente}</td><td>${saidaBadge(p)}</td><td style="font-size:12px">${p.entreguePor?escAttr(p.entreguePor):'<span style="color:var(--muted)">—</span>'}</td><td class="num" style="color:var(--green)">${p.dataRecebimentoFinal===data?brl(p.pagoFinal):'—'}</td><td style="font-size:11px">${p.dataRecebimentoFinal===data&&p.formaPagamento?labelForma(p.formaPagamento):'—'}</td></tr>`).join('');
+  let re=entreguesDia.map(p=>{
+    const ld=lanc(p).filter(l=>l.data===data);
+    const vd=ld.reduce((s,l)=>s+(Number(l.valor)||0),0);
+    return `<tr><td class="strong">#${p.id}</td><td>${p.cliente}</td><td>${saidaBadge(p)}</td><td style="font-size:12px">${p.entreguePor?escAttr(p.entreguePor):'<span style="color:var(--muted)">—</span>'}</td><td class="num" style="color:var(--green)">${vd>0?brl(vd):'—'}</td><td style="font-size:11px">${ld.length?ld.map(l=>(l.forma?labelForma(l.forma):'sem forma')+' '+brl(l.valor)).join('<br>'):'—'}</td></tr>`;
+  }).join('');
   if(!entreguesDia.length) re=`<tr><td colspan="6"><div class="empty">Nenhuma entrega nesta data.</div></td></tr>`;
   document.getElementById('tblFecEntregues').innerHTML=`<thead><tr><th>OS</th><th>Cliente</th><th>Saída</th><th>Entregue por</th><th>Recebido</th><th>Forma</th></tr></thead><tbody>${re}</tbody>`;
 }
@@ -1190,40 +1314,43 @@ function toggleConc(id){ if(conciliados.has(id)) conciliados.delete(id); else co
 function renderExtrato(recDia,data,totalDia,porForma){
   const ordem={dinheiro:1,pix:2,debito:3,credito:4,ni:5};
   const lista=recDia.slice().sort((a,b)=>{
-    const ka=ordem[a.formaPagamento]||5, kb=ordem[b.formaPagamento]||5;
-    return ka-kb || a.cliente.localeCompare(b.cliente);
+    const ka=ordem[a.l.forma]||5, kb=ordem[b.l.forma]||5;
+    return ka-kb || a.p.cliente.localeCompare(b.p.cliente);
   });
   const banco=porForma.pix+porForma.debito+porForma.credito;
   const caixa=porForma.dinheiro;
-  const confQtd=lista.filter(p=>conciliados.has(p.id)).length;
-  const confVal=lista.filter(p=>conciliados.has(p.id)).reduce((s,p)=>s+p.pagoFinal,0);
+  const confQtd=lista.filter(x=>conciliados.has(x.l.id)).length;
+  const confVal=lista.filter(x=>conciliados.has(x.l.id)).reduce((s,x)=>s+(Number(x.l.valor)||0),0);
 
   let corpo='', formaAtual=null, subtotal=0, qtdF=0;
-  const fechaGrupo=()=>{ if(formaAtual!==null) corpo+=`<tr class="sub-row"><td class="no-print"></td><td colspan="3">Subtotal ${labelForma(formaAtual)} — ${qtdF} cliente(s)</td><td></td><td class="num">${brl(subtotal)}</td></tr>`; };
-  lista.forEach(p=>{
-    const fp=p.formaPagamento||'ni';
+  const fechaGrupo=()=>{ if(formaAtual!==null) corpo+=`<tr class="sub-row"><td class="no-print"></td><td colspan="3">Subtotal ${labelForma(formaAtual)} — ${qtdF} lançamento(s)</td><td></td><td class="num">${brl(subtotal)}</td></tr>`; };
+  lista.forEach(x=>{
+    const p=x.p, l=x.l;
+    const fp=l.forma||'ni';
     if(fp!==formaAtual){ fechaGrupo(); formaAtual=fp; subtotal=0; qtdF=0; }
-    subtotal+=p.pagoFinal; qtdF++;
-    const conc=conciliados.has(p.id);
+    subtotal+=Number(l.valor)||0; qtdF++;
+    const conc=conciliados.has(l.id);
+    const outras=lanc(p).filter(o=>o.data===data && o.id!==l.id);
     const sit = quitado(p)
       ? '<span class="badge badge-green">Pago integralmente</span>'
       : `<span class="badge badge-yellow">Parcial</span> <span style="font-size:11px;color:var(--red);font-family:var(--mono)">falta ${brl(saldo(p))}</span>`;
     corpo+=`<tr class="${conc?'conc':''}">
-      <td class="no-print"><input type="checkbox" ${conc?'checked':''} onchange="toggleConc('${p.id}')" title="marcar como conferido no extrato"></td>
+      <td class="no-print"><input type="checkbox" ${conc?'checked':''} onchange="toggleConc('${l.id}')" title="marcar como conferido no extrato"></td>
       <td class="strong">${p.cliente}<div style="font-size:11px;color:var(--muted);font-family:var(--mono)">${p.telefone}</div></td>
-      <td class="strong">#${p.id}</td>
-      <td>${p.formaPagamento?labelForma(p.formaPagamento):'<span class="badge badge-red">Sem forma</span>'}</td>
+      <td class="strong">#${p.id}${outras.length?`<div style="font-size:10px;color:var(--accent2)">dividido em ${outras.length+1} formas</div>`:''}</td>
+      <td>${l.forma?labelForma(l.forma):'<span class="badge badge-red">Sem forma</span>'}</td>
       <td>${sit}</td>
-      <td class="num">${brl(p.pagoFinal)}</td>
+      <td class="num">${brl(l.valor)}</td>
     </tr>`;
   });
   fechaGrupo();
-  if(!lista.length) corpo=`<tr><td colspan="6"><div class="empty">Nenhum cliente pagou nesta data.</div></td></tr>`;
-  else corpo+=`<tr class="tot-row"><td class="no-print"></td><td colspan="3">TOTAL RECEBIDO NO DIA — ${lista.length} cliente(s)</td><td></td><td class="num">${brl(totalDia)}</td></tr>`;
+  const nCli=new Set(lista.map(x=>x.p.id)).size;
+  if(!lista.length) corpo=`<tr><td colspan="6"><div class="empty">Nenhum recebimento nesta data.</div></td></tr>`;
+  else corpo+=`<tr class="tot-row"><td class="no-print"></td><td colspan="3">TOTAL RECEBIDO NO DIA — ${nCli} cliente(s) · ${lista.length} lançamento(s)</td><td></td><td class="num">${brl(totalDia)}</td></tr>`;
 
   document.getElementById('fecExtrato').innerHTML=`<div class="panel">
     <div class="panel-header">
-      <h3>🧾 Clientes que pagaram no dia <span class="sub">— para conciliar com a conta e o caixa</span></h3>
+      <h3>🧾 Recebimentos do dia <span class="sub">— para conciliar com a conta e o caixa</span></h3>
       <span class="sub">${confQtd} de ${lista.length} conferidos · ${brl(confVal)}</span>
     </div>
     <div class="conc-box">
