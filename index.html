@@ -169,6 +169,8 @@
   .conc-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
   .conc-card.banco{border-left:3px solid var(--blue)}
   .conc-card.caixa{border-left:3px solid var(--green)}
+  .conc-card.venda{border-left:3px solid var(--accent)}
+  .conc-card.dup{border-left:3px solid var(--purple)}
   .cc-label{font-size:11px;color:var(--muted);margin-bottom:6px}
   .cc-val{font-family:var(--mono);font-size:20px;color:var(--text)}
   .cc-det{font-size:11px;color:var(--muted);margin-top:6px}
@@ -192,12 +194,19 @@
   .pg-grid select,.pg-grid input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:11px 12px;font-size:14px;color:var(--text);font-family:var(--sans);outline:none}
   .pg-grid input.mono{font-family:var(--mono)}
   .pg-grid select:focus,.pg-grid input:focus{border-color:var(--accent)}
-  .pg-linha{display:grid;grid-template-columns:1.1fr 1.3fr auto;gap:8px;margin-bottom:8px;align-items:center}
+  .pg-linha{display:grid;grid-template-columns:.95fr 1.15fr 1.05fr 1.05fr auto;gap:8px;margin-bottom:8px;align-items:center}
+  .pg-cab{display:grid;grid-template-columns:.95fr 1.15fr 1.05fr 1.05fr auto;gap:8px;margin-bottom:6px}
+  .pg-cab span{font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
   .pg-linha input,.pg-linha select{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 11px;font-size:13.5px;color:var(--text);font-family:var(--sans);outline:none;width:100%}
   .pg-linha input.mono{font-family:var(--mono)}
   .pg-linha input:focus,.pg-linha select:focus{border-color:var(--accent)}
   .abtn.del{background:rgba(231,76,60,.12);color:var(--red);border-color:rgba(231,76,60,.3);padding:8px 11px}
   .pg-total{font-size:12.5px;color:var(--label);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-top:10px}
+  .lanc-edit{display:grid;grid-template-columns:1fr 1.15fr 1fr .9fr auto;gap:6px;margin-bottom:6px;align-items:center}
+  .lanc-edit input,.lanc-edit select{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 9px;font-size:12px;color:var(--text);font-family:var(--sans);outline:none;width:100%}
+  .lanc-edit input.mono{font-family:var(--mono)}
+  .lanc-edit input:focus,.lanc-edit select:focus{border-color:var(--accent)}
+  @media(max-width:700px){.lanc-edit{grid-template-columns:1fr 1fr}.lanc-edit .abtn.del{grid-column:1/-1}}
   .lanc-lista{margin-top:6px}
   .lanc-item{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--label);padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px}
   .lanc-item .v{font-family:var(--mono);color:var(--text);margin-left:auto}
@@ -218,7 +227,10 @@
 
   .two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
   @media(max-width:1100px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.two-col,.agenda-wrap{grid-template-columns:1fr}.forma-row{grid-template-columns:repeat(2,1fr)}}
-  @media(max-width:700px){nav{display:none}.form-grid,.edit-grid,.edit-grid-3,.pg-grid{grid-template-columns:1fr}}
+  @media(max-width:700px){nav{display:none}.form-grid,.edit-grid,.edit-grid-3,.pg-grid{grid-template-columns:1fr}
+    .pg-cab{display:none}
+    .pg-linha{grid-template-columns:1fr 1fr;gap:6px;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px}
+    .pg-linha .abtn.del{grid-column:1/-1}}
 
   @media print{
     header,nav,.filter-bar,.act,.no-print{display:none!important}
@@ -325,6 +337,11 @@
           <option value="credito">💳 Crédito</option>
           <option value="sem">❓ Sem forma registrada</option>
         </select>
+        <select id="fNat" onchange="render()">
+          <option value="">Venda e duplicata</option>
+          <option value="venda">🛒 Só venda</option>
+          <option value="duplicata">📄 Só duplicata</option>
+        </select>
         <div class="flt-grp"><span class="flt-lbl">Pronto de</span><input type="date" id="fDe" onchange="render()"><span class="flt-lbl">até</span><input type="date" id="fAte" onchange="render()"></div>
         <button class="btn btn-ghost btn-sm" onclick="limparFiltros()">Limpar</button>
       </div>
@@ -349,6 +366,10 @@
           <div class="fg"><label>Valor Total (R$)</label><input type="number" id="nTotal" placeholder="0,00" step="0.01"></div>
           <div class="fg"><label>Sinal / Entrada Paga (R$)</label><input type="number" id="nSinal" placeholder="0,00" step="0.01"></div>
           <div class="fg"><label>Forma do sinal</label><select id="nSinalForma"><option value="dinheiro">💵 Dinheiro</option><option value="pix">⚡ Pix</option><option value="debito">💳 Débito</option><option value="credito">💳 Crédito</option></select></div>
+        </div>
+        <div class="form-grid g2">
+          <div class="fg"><label>Data em que o cliente pagou o sinal</label><input type="date" id="nSinalData"></div>
+          <div class="fg"><label>Natureza do pagamento</label><select id="nSinalNat"><option value="venda">🛒 Venda</option><option value="duplicata">📄 Duplicata</option></select></div>
         </div>
         <div class="form-grid g2" id="nAgendaRow" style="display:none">
           <div class="fg"><label>Data do Agendamento</label><input type="date" id="nAgData"></div>
@@ -543,6 +564,9 @@ function diasParado(s){if(!s)return 0;const a=new Date(s+'T00:00:00'),b=new Date
 
 const FUNCIONARIOS=['Bruna Barcelos','Adryanne','Jaqueline','Vitória','Marcelo','Renan','Guilherme Barcelos'];
 function datalistFunc(){return '<datalist id="dlFunc">'+FUNCIONARIOS.map(function(n){return '<option value="'+n+'">';}).join('')+'</datalist>';}
+const NATUREZAS=[['venda','🛒 Venda'],['duplicata','📄 Duplicata']];
+function selNatureza(id,cur){return '<select id="'+id+'">'+NATUREZAS.map(function(n){return '<option value="'+n[0]+'"'+(n[0]===(cur||'venda')?' selected':'')+'>'+n[1]+'</option>';}).join('')+'</select>';}
+function labelNatureza(v){const n=NATUREZAS.find(x=>x[0]===v);return n?n[1]:'—';}
 const FORMAS=[['dinheiro','💵 Dinheiro'],['pix','⚡ Pix'],['debito','💳 Débito'],['credito','💳 Crédito']];
 function selForma(id,cur){return '<select id="'+id+'">'+FORMAS.map(function(f){return '<option value="'+f[0]+'"'+(f[0]===(cur||'dinheiro')?' selected':'')+'>'+f[1]+'</option>';}).join('')+'</select>';}
 function labelForma(v){const f=FORMAS.find(x=>x[0]===v);return f?f[1]:'—';}
@@ -554,16 +578,16 @@ function pago(p){ return lanc(p).reduce((s,l)=>s+(Number(l.valor)||0),0); }
 function saldo(p){ return Math.max(0, (Number(p.valorTotal)||0) - pago(p)); }
 function quitado(p){ return saldo(p) <= 0.005; }
 function novoLancId(){ return 'L'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
-function addLanc(p,valor,forma,data,obs){
+function addLanc(p,valor,forma,data,obs,natureza){
   if(!Array.isArray(p.pagamentos)) p.pagamentos=[];
-  p.pagamentos.push({id:novoLancId(),data:data||HOJE,valor:Math.round(valor*100)/100,forma:forma||null,obs:obs||''});
+  p.pagamentos.push({id:novoLancId(),data:data||HOJE,valor:Math.round(valor*100)/100,forma:forma||null,obs:obs||'',natureza:natureza||'venda'});
 }
 /* converte pedidos no formato antigo (sinal + pagoFinal) em lançamentos */
 function migrarPagamentos(p){
   if(Array.isArray(p.pagamentos)) return p;
   p.pagamentos=[];
-  if(Number(p.sinal)>0) addLanc(p,Number(p.sinal),p.formaSinal||null,p.criadoEm||null,'sinal / entrada');
-  if(Number(p.pagoFinal)>0) addLanc(p,Number(p.pagoFinal),p.formaPagamento||null,p.dataRecebimentoFinal||null,'');
+  if(Number(p.sinal)>0) addLanc(p,Number(p.sinal),p.formaSinal||null,p.criadoEm||null,'sinal / entrada','venda');
+  if(Number(p.pagoFinal)>0) addLanc(p,Number(p.pagoFinal),p.formaPagamento||null,p.dataRecebimentoFinal||null,'','venda');
   return p;
 }
 /* todos os lançamentos de uma data, com o pedido correspondente */
@@ -794,9 +818,8 @@ function registrarPagamento(id){
      ${blocoPagamento(s)}`,
     ()=>{
       const linhas=validarLinhasPg(); if(linhas===false) return false;
-      linhas.forEach(l=>addLanc(p,l.valor,l.forma,HOJE));
-      const t=linhas.reduce((a,l)=>a+l.valor,0);
-      const detalhe=linhas.map(l=>brl(l.valor)+' '+labelForma(l.forma)).join(' + ');
+      linhas.forEach(l=>addLanc(p,l.valor,l.forma,l.data,'',l.natureza));
+      const detalhe=linhas.map(l=>brl(l.valor)+' '+labelForma(l.forma)+(l.data!==HOJE?' em '+fmtData(l.data):'')).join(' + ');
       toast(`#${id}: ${detalhe}${quitado(p)?' — pedido quitado':' — saldo '+brl(saldo(p))}`);
       persistir(p);
     },'Confirmar recebimento');
@@ -838,7 +861,7 @@ function registrarRetirada(id){
      :`<p style="margin-top:16px">Pedido já quitado. Confirmar entrega?</p>`}`,
     ()=>{
       const nome=validarEntregador(); if(nome===false) return false;
-      if(s>0){ const linhas=validarLinhasPg(); if(linhas===false) return false; linhas.forEach(l=>addLanc(p,l.valor,l.forma,HOJE)); }
+      if(s>0){ const linhas=validarLinhasPg(); if(linhas===false) return false; linhas.forEach(l=>addLanc(p,l.valor,l.forma,l.data,'',l.natureza)); }
       p.entreguePor=nome;
       p.status='entregue';p.statusEntrega='retirado';p.dataEntrega=HOJE;
       toast(`#${id} entregue por ${nome}${s>0?' — recebido '+brl(s-saldo(p)):''}`);persistir(p);
@@ -856,7 +879,7 @@ function registrarEntrega(id){
      :`<p style="margin-top:16px">Pedido já quitado. Confirmar entrega?</p>`}`,
     ()=>{
       const nome=validarEntregador(); if(nome===false) return false;
-      if(s>0){ const linhas=validarLinhasPg(); if(linhas===false) return false; linhas.forEach(l=>addLanc(p,l.valor,l.forma,HOJE)); }
+      if(s>0){ const linhas=validarLinhasPg(); if(linhas===false) return false; linhas.forEach(l=>addLanc(p,l.valor,l.forma,l.data,'',l.natureza)); }
       p.entreguePor=nome;
       p.status='entregue';p.statusEntrega='entregue';p.dataEntrega=HOJE;
       toast(`#${id} entregue por ${nome}${s>0?' — recebido '+brl(s-saldo(p)):''}`);persistir(p);
@@ -867,18 +890,21 @@ function registrarEntrega(id){
 let _linhasPg=0;
 function blocoPagamento(valorSugerido){
   _linhasPg=0;
-  return `<div id="pgLinhas"></div>
+  return `<div class="pg-cab"><span>Valor</span><span>Forma</span><span>Data do pagamento</span><span>Natureza</span><span></span></div>
+    <div id="pgLinhas"></div>
     <button type="button" class="abtn" style="margin-top:4px" onclick="addLinhaPg()">＋ Dividir em outra forma</button>
     <div class="pg-total" id="pgTotalInfo"></div>
     <div class="err-msg" id="errPg">Informe ao menos um valor maior que zero.</div>`;
 }
-function addLinhaPg(valor,forma){
+function addLinhaPg(valor,forma,data,natureza){
   const cont=document.getElementById('pgLinhas'); if(!cont) return;
   const i=++_linhasPg;
   const d=document.createElement('div');
   d.className='pg-linha'; d.id='pgL'+i;
-  d.innerHTML=`<input type="number" step="0.01" class="mono" id="pgV${i}" value="${valor!=null?Number(valor).toFixed(2):''}" placeholder="0,00" oninput="somaLinhasPg()">
+  d.innerHTML=`<input type="number" step="0.01" class="mono" id="pgV${i}" value="${valor!=null?Number(valor).toFixed(2):''}" placeholder="0,00" oninput="somaLinhasPg()" title="valor">
     ${selForma('pgF'+i,forma)}
+    <input type="date" id="pgD${i}" value="${data||HOJE}" oninput="somaLinhasPg()" title="data em que o cliente pagou">
+    ${selNatureza('pgN'+i,natureza)}
     <button type="button" class="abtn del" onclick="delLinhaPg(${i})" title="remover">✕</button>`;
   cont.appendChild(d);
   somaLinhasPg();
@@ -893,7 +919,7 @@ function lerLinhasPg(){
   document.querySelectorAll('#pgLinhas .pg-linha').forEach(d=>{
     const i=d.id.replace('pgL','');
     const v=parseFloat(val('pgV'+i))||0;
-    if(v>0) out.push({valor:v,forma:val('pgF'+i)});
+    if(v>0) out.push({valor:v,forma:val('pgF'+i),data:val('pgD'+i)||HOJE,natureza:val('pgN'+i)||'venda'});
   });
   return out;
 }
@@ -910,7 +936,9 @@ function somaLinhasPg(){
     else if(dif>0) extra=` <span style="color:var(--yellow)">faltam ${brl(dif)} — ficará como pagamento parcial</span>`;
     else extra=` <span style="color:var(--red)">excede o saldo em ${brl(-dif)}</span>`;
   }
-  el.innerHTML=`Somando <b>${brl(t)}</b>${extra}`;
+  const datas=[...new Set(linhas.map(l=>l.data).filter(d=>d&&d!==HOJE))];
+  const aviso=datas.length?`<div style="margin-top:6px;font-size:11.5px;color:var(--cyan)">📅 lançamento com data retroativa: ${datas.map(fmtDataFull).join(', ')} — entrará no fechamento desse(s) dia(s), não no de hoje</div>`:'';
+  el.innerHTML=`Somando <b>${brl(t)}</b>${extra}${aviso}`;
   return t;
 }
 function validarLinhasPg(){
@@ -921,7 +949,7 @@ function validarLinhasPg(){
 function iniciaBlocoPg(alvo,linhasIniciais){
   const info=document.getElementById('pgTotalInfo');
   if(info) info.dataset.alvo=alvo||0;
-  (linhasIniciais&&linhasIniciais.length?linhasIniciais:[{valor:alvo,forma:null}]).forEach(l=>addLinhaPg(l.valor,l.forma));
+  (linhasIniciais&&linhasIniciais.length?linhasIniciais:[{valor:alvo,forma:null}]).forEach(l=>addLinhaPg(l.valor,l.forma,l.data,l.natureza));
 }
 
 function campoEntregador(p,label){
@@ -976,6 +1004,16 @@ function val(id){const e=document.getElementById(id);return e?e.value:'';}
 function opts(pairs,cur){return pairs.map(([v,l])=>`<option value="${v}"${v===cur?' selected':''}>${l}</option>`).join('');}
 
 let _editandoId=null;
+function editLanc(pid,lid,campo,valor){
+  const p=get(pid); const l=lanc(p).find(x=>x.id===lid); if(!l) return;
+  if(campo==='valor') l.valor=Math.round((parseFloat(valor)||0)*100)/100;
+  else if(campo==='forma') l.forma=valor||null;
+  else l[campo]=valor;
+  salvarPedido(p);
+  const tp=document.getElementById('eTotalPago'); if(tp) tp.value=brl(pago(p));
+  atualizarPreviewEdit();
+  toast('Lançamento atualizado — saldo '+brl(saldo(p)));
+}
 function removerLanc(pid,lid){
   const p=get(pid);
   p.pagamentos=lanc(p).filter(l=>l.id!==lid);
@@ -996,10 +1034,16 @@ function editarPedido(id){
     <div class="edit-sec">Valores</div>
     <div class="edit-grid">
       <div class="fg"><label>Valor total (R$)</label><input type="number" step="0.01" id="eTotal" value="${p.valorTotal}" oninput="atualizarPreviewEdit()"></div>
-      <div class="fg"><label>Total já pago</label><input value="${brl(pago(p))}" disabled style="opacity:.7"></div>
+      <div class="fg"><label>Total já pago</label><input id="eTotalPago" value="${brl(pago(p))}" disabled style="opacity:.7"></div>
     </div>
     <div class="lanc-lista" style="margin-bottom:18px">
-      ${lanc(p).length?lanc(p).map(l=>`<div class="lanc-item"><span>${fmtDataFull(l.data)}</span><span>${l.forma?labelForma(l.forma):'<span style="color:var(--red)">sem forma</span>'}</span>${l.obs?'<span style="color:var(--muted)">'+escAttr(l.obs)+'</span>':''}<span class="v">${brl(l.valor)}</span><button type="button" class="abtn del" onclick="removerLanc('${p.id}','${l.id}')" title="excluir lançamento">✕</button></div>`).join(''):'<div style="font-size:12px;color:var(--muted)">Nenhum pagamento lançado.</div>'}
+      ${lanc(p).length?lanc(p).map(l=>`<div class="lanc-edit">
+        <input type="date" value="${l.data||''}" onchange="editLanc('${p.id}','${l.id}','data',this.value)" title="data do pagamento">
+        <select onchange="editLanc('${p.id}','${l.id}','forma',this.value)" title="forma"><option value=""${!l.forma?' selected':''}>— sem forma</option>${FORMAS.map(f=>`<option value="${f[0]}"${f[0]===l.forma?' selected':''}>${f[1]}</option>`).join('')}</select>
+        <select onchange="editLanc('${p.id}','${l.id}','natureza',this.value)" title="natureza">${NATUREZAS.map(n=>`<option value="${n[0]}"${n[0]===(l.natureza||'venda')?' selected':''}>${n[1]}</option>`).join('')}</select>
+        <input type="number" step="0.01" class="mono" value="${Number(l.valor).toFixed(2)}" onchange="editLanc('${p.id}','${l.id}','valor',this.value)" title="valor">
+        <button type="button" class="abtn del" onclick="removerLanc('${p.id}','${l.id}')" title="excluir lançamento">✕</button>
+      </div>${l.obs?`<div style="font-size:10.5px;color:var(--muted);margin:-2px 0 8px 2px">${escAttr(l.obs)}</div>`:''}`).join(''):'<div style="font-size:12px;color:var(--muted)">Nenhum pagamento lançado.</div>'}
     </div>
     <div class="edit-sec">Status &amp; entrega</div>
     <div class="edit-grid">
@@ -1063,12 +1107,16 @@ function renderPedidos(){
   const busca=(document.getElementById('fBusca').value||'').toLowerCase();
   const ft=document.getElementById('fTipo').value, fs=document.getElementById('fStatus').value, fsit=document.getElementById('fSit').value;
   const ffo=document.getElementById('fForma').value, fde=document.getElementById('fDe').value, fate=document.getElementById('fAte').value;
+  const fnat=document.getElementById('fNat').value;
   let lista=pedidos.filter(p=>{
     if(busca && !(p.cliente.toLowerCase().includes(busca)||p.id.includes(busca))) return false;
     if(ft && p.tipo!==ft) return false;
     if(fs && p.status!==fs) return false;
     if(fsit){const s=situacao(p);if(!s||s.key!==fsit)return false;}
-    if(ffo){ if(ffo==='sem'){ if(p.formaPagamento) return false; } else if(p.formaPagamento!==ffo) return false; }
+    if(ffo){ const fs=lanc(p).map(l=>l.forma);
+      if(ffo==='sem'){ if(!(fs.length===0 || fs.some(x=>!x))) return false; }
+      else if(!fs.includes(ffo)) return false; }
+    if(fnat && !lanc(p).some(l=>(l.natureza||'venda')===fnat)) return false;
     if(fde && (!p.dataPronto || p.dataPronto<fde)) return false;
     if(fate && (!p.dataPronto || p.dataPronto>fate)) return false;
     return true;
@@ -1102,7 +1150,7 @@ function atualizarAbas(){
   document.getElementById('tabNpronto').textContent=pedidos.filter(p=>p.status==='pronto').length;
   document.getElementById('tabNentr').textContent=pedidos.filter(p=>p.status==='entregue').length;
 }
-function limparFiltros(){['fBusca','fTipo','fStatus','fSit','fForma','fDe','fAte'].forEach(i=>document.getElementById(i).value='');render();}
+function limparFiltros(){['fBusca','fTipo','fStatus','fSit','fForma','fNat','fDe','fAte'].forEach(i=>document.getElementById(i).value='');render();}
 
 /* ============ NOVO ============ */
 function toggleAgendaFields(){document.getElementById('nAgendaRow').style.display=document.getElementById('nTipo').value==='agendado'?'grid':'none';}
@@ -1119,16 +1167,19 @@ function salvarNovo(){
   const agData=tipo==='agendado'?(document.getElementById('nAgData').value||''):'';
   const agHora=tipo==='agendado'?(document.getElementById('nAgHora').value||''):'';
   const sinalForma=document.getElementById('nSinalForma').value;
+  const sinalData=document.getElementById('nSinalData').value||HOJE;
+  const sinalNat=document.getElementById('nSinalNat').value;
   pedidos.push({id:os,cliente,telefone:document.getElementById('nTel').value.trim()||'—',tipo,valorTotal:total,sinal,pagoFinal:0,dataRecebimentoFinal:null,formaPagamento:null,
     status:st,dataPronto:st==='pronto'?HOJE:null,local:st==='pronto'?(tipo==='retirada'?'loja':'confeccao'):null,
-    pagamentos: sinal>0 ? [{id:novoLancId(),data:HOJE,valor:sinal,forma:sinalForma,obs:'sinal / entrada'}] : [],
+    pagamentos: sinal>0 ? [{id:novoLancId(),data:sinalData,valor:sinal,forma:sinalForma,obs:'sinal / entrada',natureza:sinalNat}] : [],
     statusEntrega:'aguardando',dataEntrega:null,clienteAvisado:false,
     dataAgendamento:agData||null,horaAgendamento:agHora,obsAgendamento:'',entreguePor:'',dataAviso:null,criadoEm:HOJE});
   toast(`Pedido #${os} cadastrado`);salvarPedido(pedidos[pedidos.length-1]);limparNovo();
   if(tipo==='agendado'&&agData){calSel=agData;calRef=new Date(agData+'T00:00:00');calRef.setDate(1);irPara('agenda');}
   else irPara('pedidos');
 }
-function limparNovo(){['nCliente','nTel','nOS','nTotal','nSinal','nAgData'].forEach(i=>document.getElementById(i).value='');document.getElementById('nTipo').value='correio';document.getElementById('nStatus').value='producao';toggleAgendaFields();}
+function limparNovo(){['nCliente','nTel','nOS','nTotal','nSinal','nAgData'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('nSinalData').value=HOJE;document.getElementById('nSinalNat').value='venda';document.getElementById('nTipo').value='correio';document.getElementById('nStatus').value='producao';toggleAgendaFields();}
 
 /* ============ AGENDA / CALENDÁRIO ============ */
 let calRef=new Date(HOJE+'T00:00:00'); calRef.setDate(1);
@@ -1279,7 +1330,9 @@ function renderFechamento(){
       ${funcKeys.map(k=>`<tr><td class="strong">${escAttr(k)}</td><td class="num">${porFunc[k].qtd}</td><td class="num" style="color:var(--green)">${brl(porFunc[k].rec)}</td></tr>`).join('')}
     </tbody></table></div>`:'<div class="empty">Nenhuma entrega nesta data.</div>'}</div>`;
 
-  renderExtrato(recDia,data,recebidoDia,porForma);
+  const porNat={venda:0,duplicata:0};
+  recDia.forEach(x=>{const k=(x.l.natureza==='duplicata')?'duplicata':'venda';porNat[k]+=Number(x.l.valor)||0;});
+  renderExtrato(recDia,data,recebidoDia,porForma,porNat);
 
   const aguardando=pedidos.filter(p=>p.status==='pronto'&&p.statusEntrega==='aguardando');
   const lojaRet=aguardando.filter(p=>p.local==='loja');
@@ -1311,7 +1364,7 @@ function renderFechamento(){
 }
 let conciliados=new Set();
 function toggleConc(id){ if(conciliados.has(id)) conciliados.delete(id); else conciliados.add(id); renderFechamento(); }
-function renderExtrato(recDia,data,totalDia,porForma){
+function renderExtrato(recDia,data,totalDia,porForma,porNat){
   const ordem={dinheiro:1,pix:2,debito:3,credito:4,ni:5};
   const lista=recDia.slice().sort((a,b)=>{
     const ka=ordem[a.l.forma]||5, kb=ordem[b.l.forma]||5;
@@ -1323,7 +1376,7 @@ function renderExtrato(recDia,data,totalDia,porForma){
   const confVal=lista.filter(x=>conciliados.has(x.l.id)).reduce((s,x)=>s+(Number(x.l.valor)||0),0);
 
   let corpo='', formaAtual=null, subtotal=0, qtdF=0;
-  const fechaGrupo=()=>{ if(formaAtual!==null) corpo+=`<tr class="sub-row"><td class="no-print"></td><td colspan="3">Subtotal ${labelForma(formaAtual)} — ${qtdF} lançamento(s)</td><td></td><td class="num">${brl(subtotal)}</td></tr>`; };
+  const fechaGrupo=()=>{ if(formaAtual!==null) corpo+=`<tr class="sub-row"><td class="no-print"></td><td colspan="4">Subtotal ${labelForma(formaAtual)} — ${qtdF} lançamento(s)</td><td></td><td class="num">${brl(subtotal)}</td></tr>`; };
   lista.forEach(x=>{
     const p=x.p, l=x.l;
     const fp=l.forma||'ni';
@@ -1339,14 +1392,15 @@ function renderExtrato(recDia,data,totalDia,porForma){
       <td class="strong">${p.cliente}<div style="font-size:11px;color:var(--muted);font-family:var(--mono)">${p.telefone}</div></td>
       <td class="strong">#${p.id}${outras.length?`<div style="font-size:10px;color:var(--accent2)">dividido em ${outras.length+1} formas</div>`:''}</td>
       <td>${l.forma?labelForma(l.forma):'<span class="badge badge-red">Sem forma</span>'}</td>
+      <td><span class="badge ${l.natureza==='duplicata'?'badge-purple':'badge-accent'}">${l.natureza==='duplicata'?'📄 Duplicata':'🛒 Venda'}</span></td>
       <td>${sit}</td>
       <td class="num">${brl(l.valor)}</td>
     </tr>`;
   });
   fechaGrupo();
   const nCli=new Set(lista.map(x=>x.p.id)).size;
-  if(!lista.length) corpo=`<tr><td colspan="6"><div class="empty">Nenhum recebimento nesta data.</div></td></tr>`;
-  else corpo+=`<tr class="tot-row"><td class="no-print"></td><td colspan="3">TOTAL RECEBIDO NO DIA — ${nCli} cliente(s) · ${lista.length} lançamento(s)</td><td></td><td class="num">${brl(totalDia)}</td></tr>`;
+  if(!lista.length) corpo=`<tr><td colspan="7"><div class="empty">Nenhum recebimento nesta data.</div></td></tr>`;
+  else corpo+=`<tr class="tot-row"><td class="no-print"></td><td colspan="4">TOTAL RECEBIDO NO DIA — ${nCli} cliente(s) · ${lista.length} lançamento(s)</td><td></td><td class="num">${brl(totalDia)}</td></tr>`;
 
   document.getElementById('fecExtrato').innerHTML=`<div class="panel">
     <div class="panel-header">
@@ -1356,9 +1410,11 @@ function renderExtrato(recDia,data,totalDia,porForma){
     <div class="conc-box">
       <div class="conc-card caixa"><div class="cc-label">💵 Fica no CAIXA (dinheiro)</div><div class="cc-val">${brl(caixa)}</div><div class="cc-det">confira com a gaveta no fim do dia</div></div>
       <div class="conc-card banco"><div class="cc-label">🏦 Cai na CONTA (Pix + débito + crédito)</div><div class="cc-val">${brl(banco)}</div><div class="cc-det">Pix ${brl(porForma.pix)} · débito ${brl(porForma.debito)} · crédito ${brl(porForma.credito)}${porForma.ni>0?' · <span style="color:var(--red)">sem forma '+brl(porForma.ni)+'</span>':''}</div></div>
+      <div class="conc-card venda"><div class="cc-label">🛒 VENDA</div><div class="cc-val">${brl(porNat.venda)}</div><div class="cc-det">recebimento à vista / no ato</div></div>
+      <div class="conc-card dup"><div class="cc-label">📄 DUPLICATA</div><div class="cc-val">${brl(porNat.duplicata)}</div><div class="cc-det">quitação de título / faturado</div></div>
     </div>
     <div class="table-scroll"><table>
-      <thead><tr><th class="no-print">✓</th><th>Cliente</th><th>OS</th><th>Forma</th><th>Situação do pedido</th><th>Valor pago</th></tr></thead>
+      <thead><tr><th class="no-print">✓</th><th>Cliente</th><th>OS</th><th>Forma</th><th>Natureza</th><th>Situação do pedido</th><th>Valor pago</th></tr></thead>
       <tbody>${corpo}</tbody></table></div>
   </div>`;
 }
@@ -1388,6 +1444,7 @@ let _toastT=null;
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(_toastT);_toastT=setTimeout(()=>t.classList.remove('show'),2600);}
 
 /* ============ INIT ============ */
+document.getElementById('nSinalData').value=HOJE;
 iniciarDados();
 </script>
 </body>
